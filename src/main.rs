@@ -1,13 +1,17 @@
+mod collect;
+
 // (Full example with detailed comments in examples/01d_quick_example.rs)
 //
 // This example demonstrates clap's full 'custom derive' style of creating arguments which is the
 // simplest method of use, but sacrifices some flexibility.
 use clap::{AppSettings, Clap};
+use crate::collect::CollectCommand;
 
 /// This doc string acts as a help message when the user runs '--help'
 /// as do all doc strings on fields
 #[derive(Clap)]
-#[clap(version = "1.0", author = "Kevin K. <kbknapp@gmail.com>")]
+#[clap(name = "Changelogs", version = env!("CARGO_PKG_VERSION"))]
+#[clap(about = "Generates release notes from Github pull requests. See https://github.com/aedm/changelogs")]
 #[clap(setting = AppSettings::ColoredHelp)]
 struct Opts {
     /// Sets a custom config file. Could have been an Option<T> with no default too
@@ -19,26 +23,16 @@ struct Opts {
     // #[clap(short, long, parse(from_occurrences))]
     // verbose: i32,
     #[clap(subcommand)]
-    subcmd: SubCommand,
+    subcommand: SubCommand,
 }
 
 #[derive(Clap)]
 enum SubCommand {
-    Test(Test),
-}
-
-/// A subcommand for controlling testing
-#[derive(Clap)]
-struct Test {
-    /// Print debug info
-    #[clap(short)]
-    debug: bool
+    Collect(CollectCommand),
 }
 
 fn main() {
-    println!("CÖLLYE");
     let opts: Opts = Opts::parse();
-    println!("CÖLLYE2");
 
     // Gets a value for config if supplied by user, or defaults to "default.conf"
     // println!("Value for config: {}", opts.config);
@@ -55,13 +49,15 @@ fn main() {
 
     // You can handle information about subcommands by requesting their matches by name
     // (as below), requesting just the name used, or both at the same time
-    match opts.subcmd {
-        SubCommand::Test(t) => {
-            if t.debug {
-                println!("Printing debug info...");
-            } else {
-                println!("Printing normally...");
-            }
+    match opts.subcommand {
+        SubCommand::Collect(t) => {
+            t.run();
+            // println!("since {}", t.since_branch);
+            // if t.debug {
+            //     println!("Printing debug info...");
+            // } else {
+            //     println!("Printing normally...");
+            // }
         }
     }
 
