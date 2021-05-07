@@ -31,7 +31,8 @@ enum SubCommand {
     Collect(CollectCommand),
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
     let opts: Opts = Opts::parse();
 
     // Gets a value for config if supplied by user, or defaults to "default.conf"
@@ -51,7 +52,7 @@ fn main() {
     // (as below), requesting just the name used, or both at the same time
     match opts.subcommand {
         SubCommand::Collect(t) => {
-            t.run();
+            t.run().await;
             // println!("since {}", t.since_branch);
             // if t.debug {
             //     println!("Printing debug info...");
@@ -60,9 +61,4 @@ fn main() {
             // }
         }
     }
-
-    // let octocrab = octocrab::instance();
-    // more program logic goes here...
-
-    println!("Exiting");
 }
