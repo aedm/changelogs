@@ -1,4 +1,5 @@
 mod collect;
+mod github_query;
 
 // (Full example with detailed comments in examples/01d_quick_example.rs)
 //
@@ -31,8 +32,8 @@ enum SubCommand {
     Collect(CollectCommand),
 }
 
-#[tokio::main]
-async fn main() {
+// #[tokio::main]
+fn main() {
     let opts: Opts = Opts::parse();
 
     // Gets a value for config if supplied by user, or defaults to "default.conf"
@@ -52,7 +53,7 @@ async fn main() {
     // (as below), requesting just the name used, or both at the same time
     match opts.subcommand {
         SubCommand::Collect(t) => {
-            t.run().await;
+            t.run();
             // println!("since {}", t.since_branch);
             // if t.debug {
             //     println!("Printing debug info...");

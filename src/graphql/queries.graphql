@@ -1,0 +1,18 @@
+query TestQuery {
+  repository(owner:"aedm", name:"changelogs-test") {
+    pullRequests(states: [MERGED], first: 10, baseRefName: "main") {
+      edges {
+        cursor
+        node {
+          body
+          number
+          baseRefName
+          headRefName
+          mergeCommit {
+            id
+          }
+        }
+      }
+    }
+  }
+}
