@@ -20,7 +20,7 @@ impl CollectCommand {
 
     pub fn get_stuff(&self) -> Result<(), Box<dyn Error>> {
         println!("since {}", self.since_branch);
-        run_query();
+        let _ = run_query();
 
         // let octocrab = octocrab::instance();
         // // let mut current_page = octocrab.issues("octocrab", "repo")

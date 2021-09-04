@@ -8,6 +8,8 @@ use structopt::StructOpt;
 #[allow(clippy::upper_case_acronyms)]
 type URI = String;
 
+type GitObjectID = String;
+
 #[derive(GraphQLQuery)]
 #[graphql(
 schema_path = "src/graphql/github-schema.docs.graphql",
