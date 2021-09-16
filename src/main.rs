@@ -1,5 +1,6 @@
 mod collect;
-mod github_query;
+mod github_collect;
+mod github_queries;
 
 // (Full example with detailed comments in examples/01d_quick_example.rs)
 //

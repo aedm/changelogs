@@ -12,8 +12,3 @@ clap = "3.0.0-beta.2"
 graphql_client = { version = "0.10.0", features = ["reqwest-blocking"] }
 serde = "1.0.130"
 reqwest = { version = "^0.11", features = ["json", "blocking"] }
-tokio = { version = "1.0.0", features = ["full", "tracing"] }
-log = "^0.4"
-prettytable-rs = "^0.7"
-structopt = "^0.3"
-env_logger = "^0.5"

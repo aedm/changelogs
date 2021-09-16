@@ -1,1 +1,0 @@
-graphql-client introspect-schema --authorization [GITHUBTOKEN] --header="User-Agent:ChangelogsBuild" https://api.github.com/graphql

@@ -1,6 +1,6 @@
 use clap::{Clap};
 use std::error::Error;
-use crate::github_query::run_query;
+use crate::github_collect::run_query;
 
 /// Collects changelog entries from a git branch
 #[derive(Clap)]
