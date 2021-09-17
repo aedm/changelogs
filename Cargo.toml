@@ -8,11 +8,12 @@ edition = "2018"
 
 [dependencies]
 anyhow = "1.0"
-clap = "3.0.0-beta.2"
-graphql_client = { version = "0.10.0", features = ["reqwest-blocking"], default-features = false }
-serde = "1.0.130"
-reqwest = { version = "^0.11", features = ["json", "blocking"] }
+clap = { version = "3.0.0-beta.4", features = ["std", "derive"], default-features = false }
+graphql_client = { version = "0.10.0", features = ["reqwest"], default-features = false }
+serde = { version = "1.0.130" }
+reqwest = { version = "^0.11", features = ["json"], default-features = false }
+tokio = { version = "1.11.0", features = ["macros", "rt-multi-thread"] }
 
-#[profile.release]
+[profile.release]
 #lto = true
 #panic = 'abort'

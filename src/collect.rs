@@ -1,6 +1,6 @@
-use clap::{Clap};
-use std::error::Error;
 use crate::github_collect::run_query;
+use clap::Clap;
+use std::error::Error;
 
 /// Collects changelog entries from a git branch
 #[derive(Clap)]
@@ -11,16 +11,16 @@ pub struct CollectCommand {
 }
 
 impl CollectCommand {
-    pub fn run(&self) {
-        let result = self.get_stuff();
+    pub async fn run(&self) {
+        let result = self.get_stuff().await;
         if let Err(err) = result {
             println!("Error: {:?}", err);
         }
     }
 
-    pub fn get_stuff(&self) -> Result<(), Box<dyn Error>> {
+    pub async fn get_stuff(&self) -> Result<(), Box<dyn Error>> {
         println!("since {}", self.since_branch);
-        let _ = run_query();
+        let _ = run_query().await;
 
         // let octocrab = octocrab::instance();
         // // let mut current_page = octocrab.issues("octocrab", "repo")

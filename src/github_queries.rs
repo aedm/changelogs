@@ -1,6 +1,6 @@
 pub struct TestQuery;
 pub mod test_query {
-    #![allow(dead_code,unused_imports)]
+    #![allow(dead_code, unused_imports)]
     use std::result::Result;
     pub const OPERATION_NAME: &str = "TestQuery";
     pub const QUERY : & str = "query TestQuery {\n  repository(owner:\"aedm\", name:\"changelogs-test\") {\n    pullRequests(states: [MERGED], first: 10, baseRefName: \"main\") {\n      edges {\n        cursor\n        node {\n          body\n          number\n          baseRefName\n          headRefName\n          mergeCommit {\n            oid\n          }\n        }\n      }\n    }\n  }\n}" ;

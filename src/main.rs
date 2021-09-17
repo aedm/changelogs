@@ -6,14 +6,16 @@ mod github_queries;
 //
 // This example demonstrates clap's full 'custom derive' style of creating arguments which is the
 // simplest method of use, but sacrifices some flexibility.
-use clap::{AppSettings, Clap};
 use crate::collect::CollectCommand;
+use clap::{AppSettings, Clap};
 
 /// This doc string acts as a help message when the user runs '--help'
 /// as do all doc strings on fields
 #[derive(Clap)]
 #[clap(name = "Changelogs", version = env!("CARGO_PKG_VERSION"))]
-#[clap(about = "Generates release notes from Github pull requests. See https://github.com/aedm/changelogs")]
+#[clap(
+    about = "Generates release notes from Github pull requests. See https://github.com/aedm/changelogs"
+)]
 #[clap(setting = AppSettings::ColoredHelp)]
 struct Opts {
     /// Sets a custom config file. Could have been an Option<T> with no default too
@@ -33,8 +35,8 @@ enum SubCommand {
     Collect(CollectCommand),
 }
 
-// #[tokio::main]
-fn main() {
+#[tokio::main]
+async fn main() {
     let opts: Opts = Opts::parse();
 
     // Gets a value for config if supplied by user, or defaults to "default.conf"
@@ -54,7 +56,7 @@ fn main() {
     // (as below), requesting just the name used, or both at the same time
     match opts.subcommand {
         SubCommand::Collect(t) => {
-            t.run();
+            t.run().await;
             // println!("since {}", t.since_branch);
             // if t.debug {
             //     println!("Printing debug info...");
