@@ -16,3 +16,22 @@ query TestQuery {
     }
   }
 }
+
+query PullRequests($owner: String!, $repository: String!, $branch: String!, $cursor: String) {
+  repository(owner: $owner, name: $repository) {
+    pullRequests(states: [MERGED], first: 3, baseRefName: $branch, after: $cursor) {
+      edges {
+        cursor
+        node {
+          body
+          number
+          baseRefName
+          headRefName
+          mergeCommit {
+            oid
+          }
+        }
+      }
+    }
+  }
+}
