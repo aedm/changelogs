@@ -8,6 +8,7 @@ mod github_queries;
 // simplest method of use, but sacrifices some flexibility.
 use crate::collect::CollectCommand;
 use clap::{AppSettings, Clap};
+use dotenv::dotenv;
 
 /// This doc string acts as a help message when the user runs '--help'
 /// as do all doc strings on fields
@@ -37,6 +38,7 @@ enum SubCommand {
 
 #[tokio::main]
 async fn main() {
+    dotenv().ok();
     let opts: Opts = Opts::parse();
 
     // Gets a value for config if supplied by user, or defaults to "default.conf"
