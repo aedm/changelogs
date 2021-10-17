@@ -1,0 +1,39 @@
+query PullRequests($owner: String!, $repository: String!, $branch: String!, $cursor: String) {
+    repository(owner: $owner, name: $repository) {
+        pullRequests(states: [MERGED], first: 3, baseRefName: $branch, after: $cursor) {
+            edges {
+                cursor
+                node {
+                    body
+                    number
+                    baseRefName
+                    headRefName
+                    url
+                    baseRefOid
+                    headRefOid
+                    timelineItems(first: 10) {
+                        edges {
+                            node {
+                                __typename
+                                ...on ReferencedEvent {
+                                    commit {
+                                        oid
+                                    }
+                                }
+                                ...on MergedEvent {
+                                    commit {
+                                        oid
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    mergeCommit {
+                        oid
+                    }
+
+                }
+            }
+        }
+    }
+}
