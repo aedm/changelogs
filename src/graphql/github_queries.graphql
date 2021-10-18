@@ -1,6 +1,6 @@
-query TestQuery {
-  repository(owner:"aedm", name:"changelogs-test") {
-    pullRequests(states: [MERGED], first: 10, baseRefName: "main") {
+query PullRequests($owner: String!, $repository: String!, $branch: String!, $cursor: String) {
+  repository(owner: $owner, name: $repository) {
+    pullRequests(states: [MERGED], first: 3, baseRefName: $branch, after: $cursor) {
       edges {
         cursor
         node {
@@ -17,18 +17,27 @@ query TestQuery {
   }
 }
 
-query PullRequests($owner: String!, $repository: String!, $branch: String!, $cursor: String) {
+query BranchHistory($owner: String!, $repository: String!, $branch: String!, $cursor: String) {
   repository(owner: $owner, name: $repository) {
-    pullRequests(states: [MERGED], first: 3, baseRefName: $branch, after: $cursor) {
-      edges {
-        cursor
-        node {
-          body
-          number
-          baseRefName
-          headRefName
-          mergeCommit {
-            oid
+    ref(qualifiedName: $branch) {
+      name
+      target {
+        __typename
+        ... on Commit {
+          oid
+          history(first: 5, after: $cursor) {
+            edges {
+              node {
+                oid
+                associatedPullRequests(first: 1) {
+                  edges {
+                    node {
+                      body
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }

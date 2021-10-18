@@ -37,3 +37,30 @@ query PullRequests($owner: String!, $repository: String!, $branch: String!, $cur
         }
     }
 }
+
+query BranchHistory($owner: String!, $repository: String!, $branch: String!) {
+    repository(owner: $owner, name: $repository) {
+        ref(qualifiedName: $branch) {
+            name
+            target {
+                ... on Commit {
+                    abbreviatedOid
+                    history(first: 5) {
+                        edges {
+                            node {
+                                abbreviatedOid
+                                associatedPullRequests(first: 10) {
+                                    edges {
+                                        node {
+                                            body
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

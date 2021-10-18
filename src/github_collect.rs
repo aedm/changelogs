@@ -1,4 +1,4 @@
-use crate::github_queries::{pull_requests, test_query, PullRequests, TestQuery};
+use crate::github_queries::{pull_requests, PullRequests};
 use ::reqwest::Client;
 use anyhow::Result;
 use graphql_client::reqwest::post_graphql;
@@ -55,9 +55,9 @@ async fn cycle(client: &Client) -> Option<()> {
                     );
                 }
             }
-            if cursor.is_none() {
-                break;
-            }
+        }
+        if cursor.is_none() {
+            break;
         }
     }
 
