@@ -1,0 +1,16 @@
+{
+  "name": "GitHub Schema",
+  "schemaPath": "github-schema.docs.graphql",
+  "extensions": {
+    "endpoints": {
+      "GitHub API": {
+        "url": "https://api.github.com/graphql",
+        "headers": {
+          "user-agent": "Changelogs development",
+          "Authorization": "Bearer ${env:GITHUB_TOKEN}"
+        },
+        "introspect": false
+      }
+    }
+  }
+}

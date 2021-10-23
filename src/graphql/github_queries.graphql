@@ -26,16 +26,10 @@ query BranchHistory($owner: String!, $repository: String!, $branch: String!, $cu
         ... on Commit {
           oid
           history(first: 5, after: $cursor) {
+            totalCount
             edges {
               node {
                 oid
-                associatedPullRequests(first: 1) {
-                  edges {
-                    node {
-                      body
-                    }
-                  }
-                }
               }
             }
           }
@@ -44,3 +38,23 @@ query BranchHistory($owner: String!, $repository: String!, $branch: String!, $cu
     }
   }
 }
+
+query CommitHistory($owner: String!, $repository: String!, $cursor: String) {
+  repository(owner: $owner, name: $repository) {
+    object(oid: "dec384e1e7238dd57275ce65b57224c333225dab") {
+      __typename
+      ... on Commit {
+        oid
+        history(first: 5, after: $cursor) {
+          totalCount
+          edges {
+            node {
+              oid
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
