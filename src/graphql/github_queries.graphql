@@ -40,6 +40,7 @@ query CommitHistory($owner: String!, $repository: String!, $oid: GitObjectID!, $
         history(first: 5, after: $cursor) {
           totalCount
           edges {
+            cursor
             node {
               oid
             }
