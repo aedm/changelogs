@@ -17,7 +17,7 @@ query PullRequests($owner: String!, $repository: String!, $branch: String!, $cur
   }
 }
 
-query BranchHistory($owner: String!, $repository: String!, $branch: String!, $cursor: String) {
+query BranchCommit($owner: String!, $repository: String!, $branch: String!) {
   repository(owner: $owner, name: $repository) {
     ref(qualifiedName: $branch) {
       name
@@ -25,23 +25,15 @@ query BranchHistory($owner: String!, $repository: String!, $branch: String!, $cu
         __typename
         ... on Commit {
           oid
-          history(first: 5, after: $cursor) {
-            totalCount
-            edges {
-              node {
-                oid
-              }
-            }
-          }
         }
       }
     }
   }
 }
 
-query CommitHistory($owner: String!, $repository: String!, $cursor: String) {
+query CommitHistory($owner: String!, $repository: String!, $oid: GitObjectID!, $cursor: String) {
   repository(owner: $owner, name: $repository) {
-    object(oid: "dec384e1e7238dd57275ce65b57224c333225dab") {
+    object(oid: $oid) {
       __typename
       ... on Commit {
         oid
