@@ -4,19 +4,30 @@ use crate::github_queries::{
 };
 use ::reqwest::Client;
 use anyhow::Result;
+use chrono::prelude::*;
 use dotenv::var;
 use graphql_client::reqwest::post_graphql;
 use graphql_client::GraphQLQuery;
 use std::collections::HashSet;
 
 pub type GitObjectID = String;
+pub type DateTime = String;
+
+type Date = chrono::DateTime<Utc>;
 
 #[derive(Debug)]
 struct PullRequest {
     commit_hash: String,
-    message: String,
     number: i64,
+    message: String,
     title: String,
+    merged_at: Date,
+}
+
+#[derive(Debug)]
+struct Commit {
+    hash: String,
+    date: Date,
 }
 
 pub async fn run_query() -> Option<()> {
@@ -32,19 +43,24 @@ pub async fn run_query() -> Option<()> {
     let pull_requests = fetch_pull_requests(&context, &until_branch, &commits).await?;
     println!("Found {} pull requests:", pull_requests.len());
 
-    pull_requests.iter().for_each(|x| println!("{:?}", x));
+    pull_requests
+        .iter()
+        .for_each(|x| println!("{:?}", x.number));
     Some(())
+}
+
+fn parse_date(text: &str) -> Date {
+    text.parse::<Date>().unwrap()
 }
 
 async fn fetch_commit_list(
     context: &GithubContext,
     since_commit_hash: &str,
     until_commit_hash: &str,
-) -> Option<Vec<String>> {
+) -> Option<Vec<Commit>> {
     let mut since_set: HashSet<String> = HashSet::new();
     let mut until_set: HashSet<String> = HashSet::new();
-    let mut until_list: Vec<String> = Vec::new();
-    let mut intersection: HashSet<String> = HashSet::new();
+    let mut until_list: Vec<Commit> = Vec::new();
 
     let mut since_cursor = None;
     let mut until_cursor = None;
@@ -52,22 +68,18 @@ async fn fetch_commit_list(
         let mut response =
             fetch_commit_history(&context, &until_commit_hash, &until_cursor).await?;
         until_cursor = response.1;
-        until_set.extend(response.0.iter().cloned());
+        until_set.extend(response.0.iter().map(|x| x.hash.clone()));
         until_list.append(&mut response.0);
 
         let response = fetch_commit_history(&context, &since_commit_hash, &since_cursor).await?;
         since_cursor = response.1;
-        since_set.extend(response.0);
+        since_set.extend(response.0.iter().map(|x| x.hash.clone()));
 
         let intersection: HashSet<&String> = until_set.intersection(&since_set).collect();
         if intersection.len() > 0 {
-            // println!("Since commits: {:?}", since_set.len());
-            // println!("Until commits: {:?}", until_list.len());
-            // println!("Intersection commits: {:?}", intersection.len());
             let commits: Vec<_> = until_list
-                .iter()
-                .take_while(|&x| !intersection.contains(x))
-                .cloned()
+                .into_iter()
+                .take_while(|x| !intersection.contains(&x.hash))
                 .collect();
             return Some(commits);
         }
@@ -94,9 +106,9 @@ async fn fetch_commit_hash_from_branch(context: &GithubContext, branch: &str) ->
 async fn fetch_pull_requests(
     context: &GithubContext,
     branch: &str,
-    commits: &[String],
+    commits: &[Commit],
 ) -> Option<Vec<PullRequest>> {
-    let commit_set: HashSet<_> = commits.iter().collect();
+    let commit_set: HashSet<_> = commits.iter().map(|x| &x.hash).collect();
     let mut pull_requests = Vec::new();
     let mut cursor = None;
 
@@ -109,7 +121,7 @@ async fn fetch_pull_requests(
         };
         let response_data = query_github::<PullRequests>(context, variables).await?;
         let mut edges = response_data.repository?.pull_requests.edges?;
-        edges.reverse();
+        // edges.reverse();
         for edge in &edges {
             cursor = None;
             if let Some(e) = edge {
@@ -126,9 +138,10 @@ async fn fetch_pull_requests(
                         number: node.number,
                         message: node.body.clone(),
                         title: node.title.clone(),
+                        merged_at: parse_date(&node.merged_at.as_ref()?),
                     };
                     println!("PR: {:#?}", pr);
-                    if !commits.contains(&pr.commit_hash) {
+                    if !commit_set.contains(&pr.commit_hash) {
                         break 'outer;
                     }
                     pull_requests.push(pr);
@@ -146,7 +159,7 @@ async fn fetch_commit_history(
     context: &GithubContext,
     commit_hash: &str,
     cursor: &Option<String>,
-) -> Option<(Vec<String>, Option<String>)> {
+) -> Option<(Vec<Commit>, Option<String>)> {
     let variables = commit_history::Variables {
         owner: context.owner.clone(),
         repository: context.repository.clone(),
@@ -164,7 +177,10 @@ async fn fetch_commit_history(
             let edge = history_item.as_ref()?;
             cursor = Some(edge.cursor.clone());
             let node = edge.node.as_ref()?;
-            result_vec.push(node.oid.clone());
+            result_vec.push(Commit {
+                date: parse_date(&node.committed_date),
+                hash: node.oid.clone(),
+            });
         }
         Some((result_vec, cursor))
     } else {

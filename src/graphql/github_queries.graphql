@@ -1,6 +1,6 @@
 query PullRequests($owner: String!, $repository: String!, $branch: String!, $cursor: String) {
   repository(owner: $owner, name: $repository) {
-    pullRequests(states: [MERGED], last: 100, baseRefName: $branch, after: $cursor) {
+    pullRequests(states: [MERGED], first: 100, baseRefName: $branch, after: $cursor,orderBy: { field: UPDATED_AT, direction: DESC }) {
       edges {
         cursor
         node {
@@ -9,6 +9,7 @@ query PullRequests($owner: String!, $repository: String!, $branch: String!, $cur
           baseRefName
           headRefName
           title,
+          mergedAt,
           mergeCommit {
             oid
           }
@@ -44,6 +45,7 @@ query CommitHistory($owner: String!, $repository: String!, $oid: GitObjectID!, $
             cursor
             node {
               oid
+              committedDate
             }
           }
         }
