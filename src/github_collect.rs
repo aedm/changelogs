@@ -1,57 +1,86 @@
+use crate::github_context::{query_github, GithubContext};
 use crate::github_queries::{
     branch_commit, commit_history, pull_requests, BranchCommit, CommitHistory, PullRequests,
 };
 use ::reqwest::Client;
 use anyhow::Result;
+use dotenv::var;
 use graphql_client::reqwest::post_graphql;
+use graphql_client::GraphQLQuery;
 use std::collections::HashSet;
 
 pub type GitObjectID = String;
 
+#[derive(Debug)]
+struct PullRequest {
+    commit_hash: String,
+    message: String,
+    number: i64,
+    title: String,
+}
+
 pub async fn run_query() -> Option<()> {
-    let github_token = std::env::var("GITHUB_TOKEN").expect("Missing GITHUB_TOKEN env var");
+    let context = GithubContext::new("meteor", "meteor");
+    let until_branch = "devel";
+    let since_branch = "release-2.5";
 
-    let client = Client::builder()
-        .user_agent("changelogs/0.0.0")
-        .default_headers(
-            std::iter::once((
-                reqwest::header::AUTHORIZATION,
-                reqwest::header::HeaderValue::from_str(&format!("Bearer {}", github_token))
-                    .unwrap(),
-            ))
-            .collect(),
-        )
-        .build()
-        .expect("Can't create HTTP client");
+    let since_commit_hash = fetch_commit_hash_from_branch(&context, &since_branch).await?;
+    let until_commit_hash = fetch_commit_hash_from_branch(&context, &until_branch).await?;
+    let commits = fetch_commit_list(&context, &since_commit_hash, &until_commit_hash).await?;
+    println!("Commits: {:?}", commits);
 
-    // fetch_pull_requests(&client).await;
-    let owner = "meteor";
-    let repository = "meteor";
-    let branch = "devel";
-    let commit_hash = fetch_commit_hash_from_branch(&client, &owner, &repository, &branch).await?;
-    let res = fetch_commit_history(&client, &owner, &repository, &commit_hash, None).await?;
-    println!("RES: {:?}", res);
+    let pull_requests = fetch_pull_requests(&context, &until_branch, &commits).await?;
+    println!("Found {} pull requests:", pull_requests.len());
+
+    pull_requests.iter().for_each(|x| println!("{:?}", x));
     Some(())
 }
 
-async fn fetch_commit_hash_from_branch(
-    client: &Client,
-    owner: &str,
-    repository: &str,
-    branch: &str,
-) -> Option<String> {
+async fn fetch_commit_list(
+    context: &GithubContext,
+    since_commit_hash: &str,
+    until_commit_hash: &str,
+) -> Option<Vec<String>> {
+    let mut since_set: HashSet<String> = HashSet::new();
+    let mut until_set: HashSet<String> = HashSet::new();
+    let mut until_list: Vec<String> = Vec::new();
+    let mut intersection: HashSet<String> = HashSet::new();
+
+    let mut since_cursor = None;
+    let mut until_cursor = None;
+    loop {
+        let mut response =
+            fetch_commit_history(&context, &until_commit_hash, &until_cursor).await?;
+        until_cursor = response.1;
+        until_set.extend(response.0.iter().cloned());
+        until_list.append(&mut response.0);
+
+        let response = fetch_commit_history(&context, &since_commit_hash, &since_cursor).await?;
+        since_cursor = response.1;
+        since_set.extend(response.0);
+
+        let intersection: HashSet<&String> = until_set.intersection(&since_set).collect();
+        if intersection.len() > 0 {
+            // println!("Since commits: {:?}", since_set.len());
+            // println!("Until commits: {:?}", until_list.len());
+            // println!("Intersection commits: {:?}", intersection.len());
+            let commits: Vec<_> = until_list
+                .iter()
+                .take_while(|&x| !intersection.contains(x))
+                .cloned()
+                .collect();
+            return Some(commits);
+        }
+    }
+}
+
+async fn fetch_commit_hash_from_branch(context: &GithubContext, branch: &str) -> Option<String> {
     let variables = branch_commit::Variables {
-        owner: String::from(owner),
-        repository: String::from(repository),
+        owner: context.owner.clone(),
+        repository: context.repository.clone(),
         branch: String::from(branch),
     };
-    let response_body =
-        post_graphql::<BranchCommit, _>(&client, "https://api.github.com/graphql", variables)
-            .await
-            .unwrap();
-
-    let response_data: branch_commit::ResponseData =
-        response_body.data.expect("missing response data");
+    let response_data = query_github::<BranchCommit>(context, variables).await?;
 
     if let branch_commit::BranchCommitRepositoryRefTarget::Commit(commit) =
         &response_data.repository?.ref_?.target?
@@ -62,35 +91,47 @@ async fn fetch_commit_hash_from_branch(
     }
 }
 
-async fn fetch_pull_requests(client: &Client) -> Option<()> {
+async fn fetch_pull_requests(
+    context: &GithubContext,
+    branch: &str,
+    commits: &[String],
+) -> Option<Vec<PullRequest>> {
+    let commit_set: HashSet<_> = commits.iter().collect();
+    let mut pull_requests = Vec::new();
     let mut cursor = None;
 
-    loop {
+    'outer: loop {
         let variables = pull_requests::Variables {
-            owner: "meteor".to_string(),
-            repository: "meteor".to_string(),
-            branch: "devel".to_string(),
+            owner: context.owner.clone(),
+            repository: context.repository.clone(),
+            branch: String::from(branch),
             cursor: cursor.clone(),
         };
-        let response_body =
-            post_graphql::<PullRequests, _>(&client, "https://api.github.com/graphql", variables)
-                .await
-                .unwrap();
-
-        let response_data: pull_requests::ResponseData =
-            response_body.data.expect("missing response data");
-
-        for edge in response_data.repository?.pull_requests.edges?.iter() {
+        let response_data = query_github::<PullRequests>(context, variables).await?;
+        let mut edges = response_data.repository?.pull_requests.edges?;
+        edges.reverse();
+        for edge in &edges {
             cursor = None;
             if let Some(e) = edge {
                 cursor = Some(e.cursor.to_string());
                 if let Some(node) = &e.node {
-                    println!(
-                        "node sha={} number={}\n  msg: {}",
-                        node.merge_commit.as_ref().unwrap().oid,
-                        node.number,
-                        node.body
-                    );
+                    // println!(
+                    //     "node sha={} number={}\n  msg: {}",
+                    //     node.merge_commit.as_ref().unwrap().oid,
+                    //     node.number,
+                    //     node.body
+                    // );
+                    let pr = PullRequest {
+                        commit_hash: node.merge_commit.as_ref().unwrap().oid.clone(),
+                        number: node.number,
+                        message: node.body.clone(),
+                        title: node.title.clone(),
+                    };
+                    println!("PR: {:#?}", pr);
+                    if !commits.contains(&pr.commit_hash) {
+                        break 'outer;
+                    }
+                    pull_requests.push(pr);
                 }
             }
         }
@@ -98,30 +139,21 @@ async fn fetch_pull_requests(client: &Client) -> Option<()> {
             break;
         }
     }
-
-    Some(())
+    Some(pull_requests)
 }
 
 async fn fetch_commit_history(
-    client: &Client,
-    owner: &str,
-    repository: &str,
+    context: &GithubContext,
     commit_hash: &str,
-    cursor: Option<String>,
+    cursor: &Option<String>,
 ) -> Option<(Vec<String>, Option<String>)> {
     let variables = commit_history::Variables {
-        owner: String::from(owner),
-        repository: String::from(repository),
+        owner: context.owner.clone(),
+        repository: context.repository.clone(),
         oid: String::from(commit_hash),
         cursor: cursor.clone(),
     };
-    let response_body =
-        post_graphql::<CommitHistory, _>(&client, "https://api.github.com/graphql", variables)
-            .await
-            .unwrap();
-
-    let response_data: commit_history::ResponseData =
-        response_body.data.expect("missing response data");
+    let response_data = query_github::<CommitHistory>(&context, variables).await?;
 
     if let commit_history::CommitHistoryRepositoryObject::Commit(commit) =
         response_data.repository?.object?
