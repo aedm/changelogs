@@ -1,23 +1,24 @@
-query PullRequests($owner: String!, $repository: String!, $branch: String!, $cursor: String) {
-  repository(owner: $owner, name: $repository) {
-    pullRequests(states: [MERGED], first: 100, baseRefName: $branch, after: $cursor,orderBy: { field: UPDATED_AT, direction: DESC }) {
-      edges {
-        cursor
-        node {
-          body
-          number
-          baseRefName
-          headRefName
-          title,
-          mergedAt,
-          mergeCommit {
-            oid
-          }
-        }
-      }
-    }
-  }
-}
+#query PullRequests($owner: String!, $repository: String!, $branch: String!, $cursor: String) {
+#  repository(owner: $owner, name: $repository) {
+#    pullRequests(states: [MERGED], first: 100, baseRefName: $branch, after: $cursor,orderBy: { field: UPDATED_AT, direction: DESC }) {
+#      edges {
+#        cursor
+#        node {
+#          body
+#          number
+#          baseRefName
+#          headRefName
+#          title,
+#          mergedAt,
+#          updatedAt,
+#          mergeCommit {
+#            oid
+#          }
+#        }
+#      }
+#    }
+#  }
+#}
 
 query BranchCommit($owner: String!, $repository: String!, $branch: String!) {
   repository(owner: $owner, name: $repository) {
@@ -34,6 +35,7 @@ query BranchCommit($owner: String!, $repository: String!, $branch: String!) {
 }
 
 query CommitHistory($owner: String!, $repository: String!, $oid: GitObjectID!, $cursor: String) {
+  ...GetRateLimit
   repository(owner: $owner, name: $repository) {
     object(oid: $oid) {
       __typename
@@ -46,6 +48,7 @@ query CommitHistory($owner: String!, $repository: String!, $oid: GitObjectID!, $
             node {
               oid
               committedDate
+              ...GetPullRequests
             }
           }
         }
@@ -54,3 +57,27 @@ query CommitHistory($owner: String!, $repository: String!, $oid: GitObjectID!, $
   }
 }
 
+fragment GetRateLimit on Query {
+  rateLimit {
+    limit
+    cost
+    remaining
+    resetAt
+  }
+}
+
+fragment GetPullRequests on Commit {
+  associatedPullRequests(first: 100) {
+    edges {
+      node {
+        number,
+        title
+        body
+        mergedAt,
+        mergeCommit {
+          oid
+        }
+      }
+    }
+  }
+}

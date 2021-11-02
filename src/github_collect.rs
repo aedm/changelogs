@@ -22,6 +22,7 @@ struct PullRequest {
     message: String,
     title: String,
     merged_at: Date,
+    updated_at: Date,
 }
 
 #[derive(Debug)]
@@ -31,9 +32,9 @@ struct Commit {
 }
 
 pub async fn run_query() -> Option<()> {
-    let context = GithubContext::new("meteor", "meteor");
-    let until_branch = "devel";
-    let since_branch = "release-2.5";
+    let context = GithubContext::new("facebook", "react");
+    let until_branch = "16.8.6";
+    let since_branch = "17.0.1";
 
     let since_commit_hash = fetch_commit_hash_from_branch(&context, &since_branch).await?;
     let until_commit_hash = fetch_commit_hash_from_branch(&context, &until_branch).await?;
@@ -108,7 +109,11 @@ async fn fetch_pull_requests(
     branch: &str,
     commits: &[Commit],
 ) -> Option<Vec<PullRequest>> {
+    if commits.len() == 0 {
+        return Some(vec![]);
+    }
     let commit_set: HashSet<_> = commits.iter().map(|x| &x.hash).collect();
+    let oldest_commit_date = commits.iter().min_by_key(|x| &x.date)?.date;
     let mut pull_requests = Vec::new();
     let mut cursor = None;
 
@@ -139,12 +144,15 @@ async fn fetch_pull_requests(
                         message: node.body.clone(),
                         title: node.title.clone(),
                         merged_at: parse_date(&node.merged_at.as_ref()?),
+                        updated_at: parse_date(&node.updated_at),
                     };
                     println!("PR: {:#?}", pr);
-                    if !commit_set.contains(&pr.commit_hash) {
+                    if pr.updated_at < oldest_commit_date {
                         break 'outer;
                     }
-                    pull_requests.push(pr);
+                    if commit_set.contains(&pr.commit_hash) {
+                        pull_requests.push(pr);
+                    }
                 }
             }
         }
