@@ -1,7 +1,5 @@
 use crate::github_context::{query_github, GithubContext};
-use crate::github_queries::{
-    branch_commit, commit_history, pull_requests, BranchCommit, CommitHistory, PullRequests,
-};
+use crate::github_queries::{branch_commit, commit_history, BranchCommit, CommitHistory};
 use ::reqwest::Client;
 use anyhow::Result;
 use chrono::prelude::*;
@@ -17,36 +15,41 @@ type Date = chrono::DateTime<Utc>;
 
 #[derive(Debug)]
 struct PullRequest {
-    commit_hash: String,
     number: i64,
-    message: String,
     title: String,
+    body: String,
     merged_at: Date,
-    updated_at: Date,
+    commit_hash: String,
 }
 
 #[derive(Debug)]
 struct Commit {
     hash: String,
     date: Date,
+    pull_requests: Vec<PullRequest>,
 }
 
 pub async fn run_query() -> Option<()> {
+    // let context = GithubContext::new("meteor", "meteor");
+    // let until_branch = "devel";
+    // let since_branch = "release-2.5";
     let context = GithubContext::new("facebook", "react");
-    let until_branch = "16.8.6";
-    let since_branch = "17.0.1";
+    let until_branch = "17.0.2";
+    let since_branch = "16.8.6";
 
     let since_commit_hash = fetch_commit_hash_from_branch(&context, &since_branch).await?;
     let until_commit_hash = fetch_commit_hash_from_branch(&context, &until_branch).await?;
     let commits = fetch_commit_list(&context, &since_commit_hash, &until_commit_hash).await?;
-    println!("Commits: {:?}", commits);
 
-    let pull_requests = fetch_pull_requests(&context, &until_branch, &commits).await?;
-    println!("Found {} pull requests:", pull_requests.len());
+    let prs: Vec<_> = commits.iter().flat_map(|x| &x.pull_requests).collect();
+    prs.iter()
+        .for_each(|x| println!("PR {}: {}", x.number, x.title));
+    // let pull_requests = fetch_pull_requests(&context, &until_branch, &commits).await?;
+    // println!("Found {} pull requests:", pull_requests.len());
 
-    pull_requests
-        .iter()
-        .for_each(|x| println!("{:?}", x.number));
+    // pull_requests
+    //     .iter()
+    //     .for_each(|x| println!("{:?}", x.number));
     Some(())
 }
 
@@ -104,70 +107,71 @@ async fn fetch_commit_hash_from_branch(context: &GithubContext, branch: &str) ->
     }
 }
 
-async fn fetch_pull_requests(
-    context: &GithubContext,
-    branch: &str,
-    commits: &[Commit],
-) -> Option<Vec<PullRequest>> {
-    if commits.len() == 0 {
-        return Some(vec![]);
-    }
-    let commit_set: HashSet<_> = commits.iter().map(|x| &x.hash).collect();
-    let oldest_commit_date = commits.iter().min_by_key(|x| &x.date)?.date;
-    let mut pull_requests = Vec::new();
-    let mut cursor = None;
-
-    'outer: loop {
-        let variables = pull_requests::Variables {
-            owner: context.owner.clone(),
-            repository: context.repository.clone(),
-            branch: String::from(branch),
-            cursor: cursor.clone(),
-        };
-        let response_data = query_github::<PullRequests>(context, variables).await?;
-        let mut edges = response_data.repository?.pull_requests.edges?;
-        // edges.reverse();
-        for edge in &edges {
-            cursor = None;
-            if let Some(e) = edge {
-                cursor = Some(e.cursor.to_string());
-                if let Some(node) = &e.node {
-                    // println!(
-                    //     "node sha={} number={}\n  msg: {}",
-                    //     node.merge_commit.as_ref().unwrap().oid,
-                    //     node.number,
-                    //     node.body
-                    // );
-                    let pr = PullRequest {
-                        commit_hash: node.merge_commit.as_ref().unwrap().oid.clone(),
-                        number: node.number,
-                        message: node.body.clone(),
-                        title: node.title.clone(),
-                        merged_at: parse_date(&node.merged_at.as_ref()?),
-                        updated_at: parse_date(&node.updated_at),
-                    };
-                    println!("PR: {:#?}", pr);
-                    if pr.updated_at < oldest_commit_date {
-                        break 'outer;
-                    }
-                    if commit_set.contains(&pr.commit_hash) {
-                        pull_requests.push(pr);
-                    }
-                }
-            }
-        }
-        if cursor.is_none() {
-            break;
-        }
-    }
-    Some(pull_requests)
-}
+// async fn fetch_pull_requests(
+//     context: &GithubContext,
+//     branch: &str,
+//     commits: &[Commit],
+// ) -> Option<Vec<PullRequest>> {
+//     if commits.len() == 0 {
+//         return Some(vec![]);
+//     }
+//     let commit_set: HashSet<_> = commits.iter().map(|x| &x.hash).collect();
+//     let oldest_commit_date = commits.iter().min_by_key(|x| &x.date)?.date;
+//     let mut pull_requests = Vec::new();
+//     let mut cursor = None;
+//
+//     'outer: loop {
+//         let variables = pull_requests::Variables {
+//             owner: context.owner.clone(),
+//             repository: context.repository.clone(),
+//             branch: String::from(branch),
+//             cursor: cursor.clone(),
+//         };
+//         let response_data = query_github::<PullRequests>(context, variables).await?;
+//         let mut edges = response_data.repository?.pull_requests.edges?;
+//         // edges.reverse();
+//         for edge in &edges {
+//             cursor = None;
+//             if let Some(e) = edge {
+//                 cursor = Some(e.cursor.to_string());
+//                 if let Some(node) = &e.node {
+//                     // println!(
+//                     //     "node sha={} number={}\n  msg: {}",
+//                     //     node.merge_commit.as_ref().unwrap().oid,
+//                     //     node.number,
+//                     //     node.body
+//                     // );
+//                     let pr = PullRequest {
+//                         commit_hash: node.merge_commit.as_ref().unwrap().oid.clone(),
+//                         number: node.number,
+//                         message: node.body.clone(),
+//                         title: node.title.clone(),
+//                         merged_at: parse_date(&node.merged_at.as_ref()?),
+//                         updated_at: parse_date(&node.updated_at),
+//                     };
+//                     println!("PR: {:#?}", pr);
+//                     if pr.updated_at < oldest_commit_date {
+//                         break 'outer;
+//                     }
+//                     if commit_set.contains(&pr.commit_hash) {
+//                         pull_requests.push(pr);
+//                     }
+//                 }
+//             }
+//         }
+//         if cursor.is_none() {
+//             break;
+//         }
+//     }
+//     Some(pull_requests)
+// }
 
 async fn fetch_commit_history(
     context: &GithubContext,
     commit_hash: &str,
     cursor: &Option<String>,
 ) -> Option<(Vec<Commit>, Option<String>)> {
+    println!("Fetching commit history...");
     let variables = commit_history::Variables {
         owner: context.owner.clone(),
         repository: context.repository.clone(),
@@ -175,6 +179,8 @@ async fn fetch_commit_history(
         cursor: cursor.clone(),
     };
     let response_data = query_github::<CommitHistory>(&context, variables).await?;
+
+    println!("RateLimit {:?}", response_data.get_rate_limit);
 
     if let commit_history::CommitHistoryRepositoryObject::Commit(commit) =
         response_data.repository?.object?
@@ -185,9 +191,32 @@ async fn fetch_commit_history(
             let edge = history_item.as_ref()?;
             cursor = Some(edge.cursor.clone());
             let node = edge.node.as_ref()?;
+            let hash = node.oid.clone();
+            let mut pull_requests = vec![];
+            for edge in node
+                .get_pull_requests
+                .associated_pull_requests
+                .as_ref()?
+                .edges
+                .as_ref()?
+                .iter()
+            {
+                let pr = edge.as_ref()?.node.as_ref()?;
+                let pull_request = PullRequest {
+                    commit_hash: pr.merge_commit.as_ref()?.oid.clone(),
+                    merged_at: parse_date(pr.merged_at.as_ref()?),
+                    number: pr.number,
+                    title: pr.title.clone(),
+                    body: pr.body.clone(),
+                };
+                if pull_request.commit_hash == hash {
+                    pull_requests.push(pull_request);
+                }
+            }
             result_vec.push(Commit {
                 date: parse_date(&node.committed_date),
-                hash: node.oid.clone(),
+                hash,
+                pull_requests,
             });
         }
         Some((result_vec, cursor))

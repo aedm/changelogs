@@ -1,6 +1,4 @@
-use crate::github_queries::{
-    branch_commit, commit_history, pull_requests, BranchCommit, CommitHistory, PullRequests,
-};
+use crate::github_queries::{BranchCommit, CommitHistory};
 use ::reqwest::Client;
 use anyhow::Result;
 use dotenv::var;

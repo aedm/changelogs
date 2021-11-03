@@ -70,10 +70,10 @@ fragment GetPullRequests on Commit {
   associatedPullRequests(first: 100) {
     edges {
       node {
-        number,
+        number
         title
         body
-        mergedAt,
+        mergedAt
         mergeCommit {
           oid
         }

@@ -1,85 +1,9 @@
-pub struct PullRequests;
-pub mod pull_requests {
-    #![allow(dead_code)]
-    use std::result::Result;
-    pub const OPERATION_NAME: &str = "PullRequests";
-    pub const QUERY : & str = "query PullRequests($owner: String!, $repository: String!, $branch: String!, $cursor: String) {\n  repository(owner: $owner, name: $repository) {\n    pullRequests(states: [MERGED], first: 100, baseRefName: $branch, after: $cursor,orderBy: { field: UPDATED_AT, direction: DESC }) {\n      edges {\n        cursor\n        node {\n          body\n          number\n          baseRefName\n          headRefName\n          title,\n          mergedAt,\n          updatedAt,\n          mergeCommit {\n            oid\n          }\n        }\n      }\n    }\n  }\n}\n\nquery BranchCommit($owner: String!, $repository: String!, $branch: String!) {\n  repository(owner: $owner, name: $repository) {\n    ref(qualifiedName: $branch) {\n      name\n      target {\n        __typename\n        ... on Commit {\n          oid\n        }\n      }\n    }\n  }\n}\n\nquery CommitHistory($owner: String!, $repository: String!, $oid: GitObjectID!, $cursor: String) {\n  repository(owner: $owner, name: $repository) {\n    object(oid: $oid) {\n      __typename\n      ... on Commit {\n        oid\n        history(first: 100, after: $cursor) {\n          totalCount\n          edges {\n            cursor\n            node {\n              oid\n              committedDate\n            }\n          }\n        }\n      }\n    }\n  }\n}\n\n" ;
-    use super::*;
-    use serde::{Deserialize, Serialize};
-    #[allow(dead_code)]
-    type Boolean = bool;
-    #[allow(dead_code)]
-    type Float = f64;
-    #[allow(dead_code)]
-    type Int = i64;
-    #[allow(dead_code)]
-    type ID = String;
-    type DateTime = crate::github_collect::DateTime;
-    type GitObjectID = crate::github_collect::GitObjectID;
-    #[derive(Serialize)]
-    pub struct Variables {
-        pub owner: String,
-        pub repository: String,
-        pub branch: String,
-        pub cursor: Option<String>,
-    }
-    impl Variables {}
-    #[derive(Deserialize, Debug)]
-    pub struct ResponseData {
-        pub repository: Option<PullRequestsRepository>,
-    }
-    #[derive(Deserialize, Debug)]
-    pub struct PullRequestsRepository {
-        #[serde(rename = "pullRequests")]
-        pub pull_requests: PullRequestsRepositoryPullRequests,
-    }
-    #[derive(Deserialize, Debug)]
-    pub struct PullRequestsRepositoryPullRequests {
-        pub edges: Option<Vec<Option<PullRequestsRepositoryPullRequestsEdges>>>,
-    }
-    #[derive(Deserialize, Debug)]
-    pub struct PullRequestsRepositoryPullRequestsEdges {
-        pub cursor: String,
-        pub node: Option<PullRequestsRepositoryPullRequestsEdgesNode>,
-    }
-    #[derive(Deserialize, Debug)]
-    pub struct PullRequestsRepositoryPullRequestsEdgesNode {
-        pub body: String,
-        pub number: Int,
-        #[serde(rename = "baseRefName")]
-        pub base_ref_name: String,
-        #[serde(rename = "headRefName")]
-        pub head_ref_name: String,
-        pub title: String,
-        #[serde(rename = "mergedAt")]
-        pub merged_at: Option<DateTime>,
-        #[serde(rename = "updatedAt")]
-        pub updated_at: DateTime,
-        #[serde(rename = "mergeCommit")]
-        pub merge_commit: Option<PullRequestsRepositoryPullRequestsEdgesNodeMergeCommit>,
-    }
-    #[derive(Deserialize, Debug)]
-    pub struct PullRequestsRepositoryPullRequestsEdgesNodeMergeCommit {
-        pub oid: GitObjectID,
-    }
-}
-impl graphql_client::GraphQLQuery for PullRequests {
-    type Variables = pull_requests::Variables;
-    type ResponseData = pull_requests::ResponseData;
-    fn build_query(variables: Self::Variables) -> ::graphql_client::QueryBody<Self::Variables> {
-        graphql_client::QueryBody {
-            variables,
-            query: pull_requests::QUERY,
-            operation_name: pull_requests::OPERATION_NAME,
-        }
-    }
-}
 pub struct BranchCommit;
 pub mod branch_commit {
     #![allow(dead_code)]
     use std::result::Result;
     pub const OPERATION_NAME: &str = "BranchCommit";
-    pub const QUERY : & str = "query PullRequests($owner: String!, $repository: String!, $branch: String!, $cursor: String) {\n  repository(owner: $owner, name: $repository) {\n    pullRequests(states: [MERGED], first: 100, baseRefName: $branch, after: $cursor,orderBy: { field: UPDATED_AT, direction: DESC }) {\n      edges {\n        cursor\n        node {\n          body\n          number\n          baseRefName\n          headRefName\n          title,\n          mergedAt,\n          updatedAt,\n          mergeCommit {\n            oid\n          }\n        }\n      }\n    }\n  }\n}\n\nquery BranchCommit($owner: String!, $repository: String!, $branch: String!) {\n  repository(owner: $owner, name: $repository) {\n    ref(qualifiedName: $branch) {\n      name\n      target {\n        __typename\n        ... on Commit {\n          oid\n        }\n      }\n    }\n  }\n}\n\nquery CommitHistory($owner: String!, $repository: String!, $oid: GitObjectID!, $cursor: String) {\n  repository(owner: $owner, name: $repository) {\n    object(oid: $oid) {\n      __typename\n      ... on Commit {\n        oid\n        history(first: 100, after: $cursor) {\n          totalCount\n          edges {\n            cursor\n            node {\n              oid\n              committedDate\n            }\n          }\n        }\n      }\n    }\n  }\n}\n\n" ;
+    pub const QUERY : & str = "#query PullRequests($owner: String!, $repository: String!, $branch: String!, $cursor: String) {\n#  repository(owner: $owner, name: $repository) {\n#    pullRequests(states: [MERGED], first: 100, baseRefName: $branch, after: $cursor,orderBy: { field: UPDATED_AT, direction: DESC }) {\n#      edges {\n#        cursor\n#        node {\n#          body\n#          number\n#          baseRefName\n#          headRefName\n#          title,\n#          mergedAt,\n#          updatedAt,\n#          mergeCommit {\n#            oid\n#          }\n#        }\n#      }\n#    }\n#  }\n#}\n\nquery BranchCommit($owner: String!, $repository: String!, $branch: String!) {\n  repository(owner: $owner, name: $repository) {\n    ref(qualifiedName: $branch) {\n      name\n      target {\n        __typename\n        ... on Commit {\n          oid\n        }\n      }\n    }\n  }\n}\n\nquery CommitHistory($owner: String!, $repository: String!, $oid: GitObjectID!, $cursor: String) {\n  ...GetRateLimit\n  repository(owner: $owner, name: $repository) {\n    object(oid: $oid) {\n      __typename\n      ... on Commit {\n        oid\n        history(first: 100, after: $cursor) {\n          totalCount\n          edges {\n            cursor\n            node {\n              oid\n              committedDate\n              ...GetPullRequests\n            }\n          }\n        }\n      }\n    }\n  }\n}\n\nfragment GetRateLimit on Query {\n  rateLimit {\n    limit\n    cost\n    remaining\n    resetAt\n  }\n}\n\nfragment GetPullRequests on Commit {\n  associatedPullRequests(first: 100) {\n    edges {\n      node {\n        number\n        title\n        body\n        mergedAt\n        mergeCommit {\n          oid\n        }\n      }\n    }\n  }\n}" ;
     use super::*;
     use serde::{Deserialize, Serialize};
     #[allow(dead_code)]
@@ -141,7 +65,7 @@ pub mod commit_history {
     #![allow(dead_code)]
     use std::result::Result;
     pub const OPERATION_NAME: &str = "CommitHistory";
-    pub const QUERY : & str = "query PullRequests($owner: String!, $repository: String!, $branch: String!, $cursor: String) {\n  repository(owner: $owner, name: $repository) {\n    pullRequests(states: [MERGED], first: 100, baseRefName: $branch, after: $cursor,orderBy: { field: UPDATED_AT, direction: DESC }) {\n      edges {\n        cursor\n        node {\n          body\n          number\n          baseRefName\n          headRefName\n          title,\n          mergedAt,\n          updatedAt,\n          mergeCommit {\n            oid\n          }\n        }\n      }\n    }\n  }\n}\n\nquery BranchCommit($owner: String!, $repository: String!, $branch: String!) {\n  repository(owner: $owner, name: $repository) {\n    ref(qualifiedName: $branch) {\n      name\n      target {\n        __typename\n        ... on Commit {\n          oid\n        }\n      }\n    }\n  }\n}\n\nquery CommitHistory($owner: String!, $repository: String!, $oid: GitObjectID!, $cursor: String) {\n  repository(owner: $owner, name: $repository) {\n    object(oid: $oid) {\n      __typename\n      ... on Commit {\n        oid\n        history(first: 100, after: $cursor) {\n          totalCount\n          edges {\n            cursor\n            node {\n              oid\n              committedDate\n            }\n          }\n        }\n      }\n    }\n  }\n}\n\n" ;
+    pub const QUERY : & str = "#query PullRequests($owner: String!, $repository: String!, $branch: String!, $cursor: String) {\n#  repository(owner: $owner, name: $repository) {\n#    pullRequests(states: [MERGED], first: 100, baseRefName: $branch, after: $cursor,orderBy: { field: UPDATED_AT, direction: DESC }) {\n#      edges {\n#        cursor\n#        node {\n#          body\n#          number\n#          baseRefName\n#          headRefName\n#          title,\n#          mergedAt,\n#          updatedAt,\n#          mergeCommit {\n#            oid\n#          }\n#        }\n#      }\n#    }\n#  }\n#}\n\nquery BranchCommit($owner: String!, $repository: String!, $branch: String!) {\n  repository(owner: $owner, name: $repository) {\n    ref(qualifiedName: $branch) {\n      name\n      target {\n        __typename\n        ... on Commit {\n          oid\n        }\n      }\n    }\n  }\n}\n\nquery CommitHistory($owner: String!, $repository: String!, $oid: GitObjectID!, $cursor: String) {\n  ...GetRateLimit\n  repository(owner: $owner, name: $repository) {\n    object(oid: $oid) {\n      __typename\n      ... on Commit {\n        oid\n        history(first: 100, after: $cursor) {\n          totalCount\n          edges {\n            cursor\n            node {\n              oid\n              committedDate\n              ...GetPullRequests\n            }\n          }\n        }\n      }\n    }\n  }\n}\n\nfragment GetRateLimit on Query {\n  rateLimit {\n    limit\n    cost\n    remaining\n    resetAt\n  }\n}\n\nfragment GetPullRequests on Commit {\n  associatedPullRequests(first: 100) {\n    edges {\n      node {\n        number\n        title\n        body\n        mergedAt\n        mergeCommit {\n          oid\n        }\n      }\n    }\n  }\n}" ;
     use super::*;
     use serde::{Deserialize, Serialize};
     #[allow(dead_code)]
@@ -163,7 +87,49 @@ pub mod commit_history {
     }
     impl Variables {}
     #[derive(Deserialize, Debug)]
+    pub struct GetRateLimit {
+        #[serde(rename = "rateLimit")]
+        pub rate_limit: Option<GetRateLimitRateLimit>,
+    }
+    #[derive(Deserialize, Debug)]
+    pub struct GetRateLimitRateLimit {
+        pub limit: Int,
+        pub cost: Int,
+        pub remaining: Int,
+        #[serde(rename = "resetAt")]
+        pub reset_at: DateTime,
+    }
+    #[derive(Deserialize, Debug)]
+    pub struct GetPullRequests {
+        #[serde(rename = "associatedPullRequests")]
+        pub associated_pull_requests: Option<GetPullRequestsAssociatedPullRequests>,
+    }
+    #[derive(Deserialize, Debug)]
+    pub struct GetPullRequestsAssociatedPullRequests {
+        pub edges: Option<Vec<Option<GetPullRequestsAssociatedPullRequestsEdges>>>,
+    }
+    #[derive(Deserialize, Debug)]
+    pub struct GetPullRequestsAssociatedPullRequestsEdges {
+        pub node: Option<GetPullRequestsAssociatedPullRequestsEdgesNode>,
+    }
+    #[derive(Deserialize, Debug)]
+    pub struct GetPullRequestsAssociatedPullRequestsEdgesNode {
+        pub number: Int,
+        pub title: String,
+        pub body: String,
+        #[serde(rename = "mergedAt")]
+        pub merged_at: Option<DateTime>,
+        #[serde(rename = "mergeCommit")]
+        pub merge_commit: Option<GetPullRequestsAssociatedPullRequestsEdgesNodeMergeCommit>,
+    }
+    #[derive(Deserialize, Debug)]
+    pub struct GetPullRequestsAssociatedPullRequestsEdgesNodeMergeCommit {
+        pub oid: GitObjectID,
+    }
+    #[derive(Deserialize, Debug)]
     pub struct ResponseData {
+        #[serde(flatten)]
+        pub get_rate_limit: GetRateLimit,
         pub repository: Option<CommitHistoryRepository>,
     }
     #[derive(Deserialize, Debug)]
@@ -199,6 +165,8 @@ pub mod commit_history {
         pub oid: GitObjectID,
         #[serde(rename = "committedDate")]
         pub committed_date: DateTime,
+        #[serde(flatten)]
+        pub get_pull_requests: GetPullRequests,
     }
 }
 impl graphql_client::GraphQLQuery for CommitHistory {
