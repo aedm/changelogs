@@ -1,6 +1,7 @@
-#query PullRequests($owner: String!, $repository: String!, $branch: String!, $cursor: String) {
+#query PullRequests($owner: String!, $repository: String!, $cursor: String) {
+#  ...GetRateLimit
 #  repository(owner: $owner, name: $repository) {
-#    pullRequests(states: [MERGED], first: 100, baseRefName: $branch, after: $cursor,orderBy: { field: UPDATED_AT, direction: DESC }) {
+#    pullRequests(states: [MERGED], first: 100, after: $cursor, orderBy: { field: UPDATED_AT, direction: DESC }) {
 #      edges {
 #        cursor
 #        node {
@@ -11,6 +12,18 @@
 #          title,
 #          mergedAt,
 #          updatedAt,
+#          author {
+#            login
+#          }
+#          closingIssuesReferences(first: 100) {
+#            totalCount
+#            edges {
+#              node {
+#                number
+#                title
+#              }
+#            }
+#          }
 #          mergeCommit {
 #            oid
 #          }
@@ -20,7 +33,67 @@
 #  }
 #}
 
-query BranchCommit($owner: String!, $repository: String!, $branch: String!) {
+#query PullRequestIDs($owner: String!, $repository: String!, $cursor: String) {
+#  ...GetRateLimit
+#  repository(owner: $owner, name: $repository) {
+#    pullRequests(states: [MERGED], first: 100, after: $cursor, orderBy: { field: UPDATED_AT, direction: DESC }) {
+#      edges {
+#        cursor
+#        node {
+#          id
+#        }
+#      }
+#    }
+#  }
+#}
+
+
+query GetPullRequestsIdsForCommitIds($commit_ids: [ID!]!) {
+  ...RateLimit
+  nodes(ids: $commit_ids){
+    ... on Commit {
+      associatedPullRequests(first: 100) {
+        nodes {
+          id
+        }
+      }
+    }
+  }
+}
+
+
+query GetPullRequestsById($pr_ids: [ID!]!) {
+  ...RateLimit
+  nodes(ids: $pr_ids){
+    ...on PullRequest {
+      id
+      number
+      body
+      baseRefName
+      headRefName
+      title,
+      mergedAt,
+      updatedAt,
+      author {
+        login
+      }
+      closingIssuesReferences(first: 100) {
+        totalCount
+        edges {
+          node {
+            number
+            title
+          }
+        }
+      }
+      mergeCommit {
+        oid
+      }
+    }
+  }
+}
+
+query GetCommitOnBranchHead($owner: String!, $repository: String!, $branch: String!) {
   repository(owner: $owner, name: $repository) {
     ref(qualifiedName: $branch) {
       name
@@ -34,8 +107,8 @@ query BranchCommit($owner: String!, $repository: String!, $branch: String!) {
   }
 }
 
-query CommitHistory($owner: String!, $repository: String!, $oid: GitObjectID!, $cursor: String) {
-  ...GetRateLimit
+query GetCommitHistory($owner: String!, $repository: String!, $oid: GitObjectID!, $cursor: String) {
+  ...RateLimit
   repository(owner: $owner, name: $repository) {
     object(oid: $oid) {
       __typename
@@ -46,9 +119,15 @@ query CommitHistory($owner: String!, $repository: String!, $oid: GitObjectID!, $
           edges {
             cursor
             node {
+              id
               oid
               committedDate
-              ...GetPullRequests
+              parents(first: 2) {
+                nodes {
+                  oid
+                }
+              }
+#              ...GetPullRequests
             }
           }
         }
@@ -57,7 +136,7 @@ query CommitHistory($owner: String!, $repository: String!, $oid: GitObjectID!, $
   }
 }
 
-fragment GetRateLimit on Query {
+fragment RateLimit on Query {
   rateLimit {
     limit
     cost
@@ -66,18 +145,19 @@ fragment GetRateLimit on Query {
   }
 }
 
-fragment GetPullRequests on Commit {
-  associatedPullRequests(first: 100) {
-    edges {
-      node {
-        number
-        title
-        body
-        mergedAt
-        mergeCommit {
-          oid
-        }
-      }
-    }
-  }
-}
+#fragment GetPullRequests on Commit {
+#  associatedPullRequests(first: 10) {
+#    nodes {
+#      id
+#      number
+#      mergeCommit {
+#        oid
+#      }
+#    }
+##    edges {
+##      node {
+##        id
+##      }
+##    }
+#  }
+#}
