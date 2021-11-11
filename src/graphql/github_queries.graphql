@@ -50,7 +50,8 @@
 
 query GetPullRequestsIdsForCommitIds($commit_ids: [ID!]!) {
   ...RateLimit
-  nodes(ids: $commit_ids){
+  nodes(ids: $commit_ids) {
+    __typename
     ... on Commit {
       associatedPullRequests(first: 100) {
         nodes {
@@ -64,7 +65,8 @@ query GetPullRequestsIdsForCommitIds($commit_ids: [ID!]!) {
 
 query GetPullRequestsById($pr_ids: [ID!]!) {
   ...RateLimit
-  nodes(ids: $pr_ids){
+  nodes(ids: $pr_ids) {
+    __typename
     ...on PullRequest {
       id
       number
@@ -75,6 +77,7 @@ query GetPullRequestsById($pr_ids: [ID!]!) {
       mergedAt,
       updatedAt,
       author {
+        __typename
         login
       }
       closingIssuesReferences(first: 100) {
