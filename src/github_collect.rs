@@ -1,7 +1,8 @@
 use crate::github_context::{query_github, GithubContext};
 use crate::github_queries::{
-    get_commit_history, get_commit_on_branch_head, get_pull_requests_ids_for_commit_ids,
-    GetCommitHistory, GetCommitOnBranchHead, GetPullRequestsIdsForCommitIds,
+    get_commit_history, get_commit_on_branch_head, get_pull_requests_by_id,
+    get_pull_requests_ids_for_commit_ids, GetCommitHistory, GetCommitOnBranchHead,
+    GetPullRequestsById, GetPullRequestsIdsForCommitIds,
 };
 use ::reqwest::Client;
 use anyhow::Result;
@@ -51,16 +52,9 @@ pub async fn run_query() -> Option<()> {
 
     println!("Commits: {}", commits.len());
 
-    fetch_pull_requests(&context, &commits).await?;
-    // let prs: Vec<_> = commits.iter().flat_map(|x| &x.pull_requests).collect();
-    // prs.iter()
-    //     .for_each(|x| println!("PR {}: {}", x.number, x.title));
-    // let pull_requests = fetch_pull_requests(&context, &until_branch, &commits).await?;
-    // println!("Found {} pull requests:", pull_requests.len());
+    let prs = fetch_pull_requests(&context, &commits).await?;
+    println!("PRs: {:#?}", prs);
 
-    // pull_requests
-    //     .iter()
-    //     .for_each(|x| println!("{:?}", x.number));
     Some(())
 }
 
@@ -93,11 +87,11 @@ async fn fetch_pull_requests(
 ) -> Option<Vec<Rc<PullRequest>>> {
     println!("Fetching pull request ids for {} commits...", commits.len());
 
-    let mut pr_ids = vec![];
+    let mut pr_ids_by_commit_hash = HashMap::new();
 
     const PAGE_SIZE: usize = 100;
     for page in 0..=(commits.len() / PAGE_SIZE) {
-        println!("Fetching page {}...", page);
+        println!("Fetching PR id page {}...", page);
         let first = page * PAGE_SIZE;
         let last = min(first + PAGE_SIZE, commits.len());
         let commit_ids: Vec<_> = commits[first..last]
@@ -108,46 +102,53 @@ async fn fetch_pull_requests(
         let response_data =
             query_github::<GetPullRequestsIdsForCommitIds>(&context, variables).await?;
         println!("RateLimit {:?}", response_data.rate_limit);
-        for node in &response_data.nodes {
-            if let get_pull_requests_ids_for_commit_ids::GetPullRequestsIdsForCommitIdsNodes::Commit(commit) = node.as_ref()? {
-                for n2 in commit.associated_pull_requests.as_ref()?.nodes.as_ref()? {
-                    pr_ids.push(n2.as_ref()?.id.clone());
+        for node in response_data.nodes {
+            if let get_pull_requests_ids_for_commit_ids::GetPullRequestsIdsForCommitIdsNodes::Commit(commit) = node? {
+                let oid = commit.oid;
+                let asdf: Vec<_> = commit.associated_pull_requests?.nodes?.into_iter().map(|it| it.unwrap().id).collect();
+                pr_ids_by_commit_hash.insert(oid, asdf);
+            }
+        }
+    }
+
+    println!("Pull request ids: {:?}", pr_ids_by_commit_hash);
+    let pr_set: HashSet<_> = pr_ids_by_commit_hash
+        .iter()
+        .flat_map(|it| it.1)
+        .cloned()
+        .collect();
+    let pr_list: Vec<_> = pr_set.into_iter().collect();
+    let mut pull_requests = vec![];
+
+    for page in 0..=(pr_list.len() / PAGE_SIZE) {
+        println!("Fetching PR page {}...", page);
+        let first = page * PAGE_SIZE;
+        let last = min(first + PAGE_SIZE, pr_list.len());
+        let pr_ids: Vec<_> = pr_list[first..last].iter().cloned().collect();
+        let variables = get_pull_requests_by_id::Variables { pr_ids };
+        let response_data = query_github::<GetPullRequestsById>(&context, variables).await?;
+        println!("RateLimit {:?}", response_data.rate_limit);
+        for node in response_data.nodes {
+            if let get_pull_requests_by_id::GetPullRequestsByIdNodes::PullRequest(pr) = node? {
+                let pr = PullRequest {
+                    id: pr.id,
+                    title: pr.title,
+                    number: pr.number,
+                    body: pr.body,
+                    merged_at: parse_date(&pr.merged_at?),
+                    commit_hash: pr.merge_commit?.oid,
+                };
+                if let Some(x) = pr_ids_by_commit_hash.get(&pr.commit_hash) {
+                    if x.contains(&pr.id) {
+                        pull_requests.push(Rc::new(pr));
+                    }
                 }
             }
         }
     }
 
-    println!("Pull request ids: {:?}", pr_ids);
-
-    // if let get_commit_history::GetCommitHistoryRepositoryObject::Commit(commit) =
-    // response_data.repository?.object?
-    // {
-    //     let mut result_vec = vec![];
-    //     let mut cursor = None;
-    //     for history_item in &commit.history.edges? {
-    //         let edge = history_item.as_ref()?;
-    //         cursor = Some(edge.cursor.clone());
-    //         let node = edge.node.as_ref()?;
-    //         let hash = node.oid.clone();
-    //         let first_parent = node.parents.nodes.as_ref()?.first();
-    //         let first_parent_hash = if let Some(x) = first_parent {
-    //             Some(x.as_ref()?.oid.clone())
-    //         } else {
-    //             None
-    //         };
-    //         result_vec.push(Rc::new(Commit {
-    //             date: parse_date(&node.committed_date),
-    //             hash,
-    //             id: node.id.clone(),
-    //             first_parent_hash,
-    //         }));
-    //     }
-    //     Some((result_vec, cursor))
-    // } else {
-    //     None
-    // }
-
-    None
+    pull_requests.sort_by_key(|it| it.merged_at);
+    Some(pull_requests)
 }
 
 async fn fetch_commit_list(
@@ -203,9 +204,9 @@ async fn fetch_commit_hash_from_branch(context: &GithubContext, branch: &str) ->
     let response_data = query_github::<GetCommitOnBranchHead>(context, variables).await?;
 
     if let get_commit_on_branch_head::GetCommitOnBranchHeadRepositoryRefTarget::Commit(commit) =
-        &response_data.repository?.ref_?.target?
+        response_data.repository?.ref_?.target?
     {
-        Some(commit.oid.clone())
+        Some(commit.oid)
     } else {
         None
     }
@@ -232,13 +233,12 @@ async fn fetch_commit_history(
     {
         let mut result_vec = vec![];
         let mut cursor = None;
-        for history_item in &commit.history.edges? {
-            let edge = history_item.as_ref()?;
-            cursor = Some(edge.cursor.clone());
-            let node = edge.node.as_ref()?;
-            let hash = node.oid.clone();
-            let first_parent = node.parents.nodes.as_ref()?.first();
-            let first_parent_hash = if let Some(x) = first_parent {
+        for history_item in commit.history.edges? {
+            let edge = history_item?;
+            cursor = Some(edge.cursor);
+            let node = edge.node?;
+            let hash = node.oid;
+            let first_parent_hash = if let Some(&x) = node.parents.nodes?.first().as_ref() {
                 Some(x.as_ref()?.oid.clone())
             } else {
                 None

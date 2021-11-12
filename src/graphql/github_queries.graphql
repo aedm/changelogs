@@ -53,6 +53,8 @@ query GetPullRequestsIdsForCommitIds($commit_ids: [ID!]!) {
   nodes(ids: $commit_ids) {
     __typename
     ... on Commit {
+      id
+      oid
       associatedPullRequests(first: 100) {
         nodes {
           id
