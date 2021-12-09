@@ -1,4 +1,5 @@
 use crate::github_context::{query_github, GithubContext};
+use crate::github_queries::get_pull_requests_by_id::PullRequestState::MERGED;
 use crate::github_queries::{
     get_commit_history, get_commit_on_branch_head, get_pull_requests_by_id,
     get_pull_requests_ids_for_commit_ids, GetCommitHistory, GetCommitOnBranchHead,
@@ -26,7 +27,7 @@ struct PullRequest {
     number: i64,
     title: String,
     body: String,
-    merged_at: Date,
+    merged_at: Option<Date>,
     commit_hash: String,
 }
 
@@ -39,12 +40,15 @@ struct Commit {
 }
 
 pub async fn run_query() -> Option<()> {
-    let context = GithubContext::new("meteor", "meteor");
-    let until_branch = "devel";
-    let since_branch = "release-2.5";
+    // let context = GithubContext::new("meteor", "meteor");
+    // let until_branch = "devel";
+    // let since_branch = "release-2.5";
     // let context = GithubContext::new("facebook", "react");
     // let until_branch = "17.0.2";
     // let since_branch = "16.8.6";
+    let context = GithubContext::new("aedm", "changelogs-test");
+    let until_branch = "2-feature-branch";
+    let since_branch = "1-feature-branch";
 
     let since_commit_hash = fetch_commit_hash_from_branch(&context, &since_branch).await?;
     let until_commit_hash = fetch_commit_hash_from_branch(&context, &until_branch).await?;
@@ -52,7 +56,7 @@ pub async fn run_query() -> Option<()> {
 
     println!("Commits: {}", commits.len());
 
-    let prs = fetch_pull_requests(&context, &commits).await?;
+    let prs = fetch_pull_requests(&context, &commits).await.unwrap();
     println!("PRs: {:#?}", prs);
 
     Some(())
@@ -99,14 +103,20 @@ async fn fetch_pull_requests(
             .map(|it| it.id.clone())
             .collect();
         let variables = get_pull_requests_ids_for_commit_ids::Variables { commit_ids };
-        let response_data =
-            query_github::<GetPullRequestsIdsForCommitIds>(&context, variables).await?;
+        let response_data = query_github::<GetPullRequestsIdsForCommitIds>(&context, variables)
+            .await
+            .unwrap();
         println!("RateLimit {:?}", response_data.rate_limit);
         for node in response_data.nodes {
-            if let get_pull_requests_ids_for_commit_ids::GetPullRequestsIdsForCommitIdsNodes::Commit(commit) = node? {
+            println!("---1");
+            if let get_pull_requests_ids_for_commit_ids::GetPullRequestsIdsForCommitIdsNodes::Commit(commit) = node.unwrap() {
+                println!("---2");
                 let oid = commit.oid;
-                let asdf: Vec<_> = commit.associated_pull_requests?.nodes?.into_iter().map(|it| it.unwrap().id).collect();
+                println!("---3");
+                let asdf: Vec<_> = commit.associated_pull_requests.unwrap().nodes.unwrap().into_iter().map(|it| it.unwrap().id).collect();
+                println!("---4");
                 pr_ids_by_commit_hash.insert(oid, asdf);
+                println!("---5");
             }
         }
     }
@@ -126,21 +136,29 @@ async fn fetch_pull_requests(
         let last = min(first + PAGE_SIZE, pr_list.len());
         let pr_ids: Vec<_> = pr_list[first..last].iter().cloned().collect();
         let variables = get_pull_requests_by_id::Variables { pr_ids };
-        let response_data = query_github::<GetPullRequestsById>(&context, variables).await?;
+        let response_data = query_github::<GetPullRequestsById>(&context, variables)
+            .await
+            .unwrap();
         println!("RateLimit {:?}", response_data.rate_limit);
         for node in response_data.nodes {
-            if let get_pull_requests_by_id::GetPullRequestsByIdNodes::PullRequest(pr) = node? {
-                let pr = PullRequest {
+            if let get_pull_requests_by_id::GetPullRequestsByIdNodes::PullRequest(pr) =
+                node.unwrap()
+            {
+                println!("PR {:#?}", pr);
+                if !matches!(pr.state, MERGED) {
+                    continue;
+                }
+                let pull_reuest = PullRequest {
                     id: pr.id,
                     title: pr.title,
                     number: pr.number,
                     body: pr.body,
-                    merged_at: parse_date(&pr.merged_at?),
-                    commit_hash: pr.merge_commit?.oid,
+                    merged_at: pr.merged_at.and_then(|s| Some(parse_date(&s))),
+                    commit_hash: pr.merge_commit.unwrap().oid,
                 };
-                if let Some(x) = pr_ids_by_commit_hash.get(&pr.commit_hash) {
-                    if x.contains(&pr.id) {
-                        pull_requests.push(Rc::new(pr));
+                if let Some(x) = pr_ids_by_commit_hash.get(&pull_reuest.commit_hash) {
+                    if x.contains(&pull_reuest.id) {
+                        pull_requests.push(Rc::new(pull_reuest));
                     }
                 }
             }
@@ -238,8 +256,10 @@ async fn fetch_commit_history(
             cursor = Some(edge.cursor);
             let node = edge.node?;
             let hash = node.oid;
-            let first_parent_hash = if let Some(&x) = node.parents.nodes?.first().as_ref() {
-                Some(x.as_ref()?.oid.clone())
+            let first_parent_hash = if let Some(x) = node.parents.edges.unwrap().first() {
+                x.as_ref()
+                    .and_then(|edge| edge.node.as_ref())
+                    .and_then(|node| Some(node.oid.clone()))
             } else {
                 None
             };

@@ -72,6 +72,7 @@ query GetPullRequestsById($pr_ids: [ID!]!) {
     ...on PullRequest {
       id
       number
+      state
       body
       baseRefName
       headRefName
@@ -127,12 +128,14 @@ query GetCommitHistory($owner: String!, $repository: String!, $oid: GitObjectID!
               id
               oid
               committedDate
-              parents(first: 2) {
-                nodes {
-                  oid
+              message
+              parents(first: 10) {
+                edges {
+                  node {
+                    oid
+                  }
                 }
               }
-#              ...GetPullRequests
             }
           }
         }
